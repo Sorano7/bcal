@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
-	"strings"
 )
 
 // A parser for constructing AST.
@@ -103,7 +102,7 @@ func (p *parser) parseExpr(prec int) Expression {
 
 	current := p.currentToken()
 	switch current.typeof {
-	case TokenInt, TokenDot:
+	case TokenInt, TokenDot, TokenLCurly:
 		expr = p.parseNumber()
 	case TokenDash:
 		expr = p.parsePrefix()
@@ -135,24 +134,94 @@ func (p *parser) handleInfix(prec int, expr Expression) Expression {
 	return expr
 }
 
+// Parse a digit value.
+func (p *parser) parseDigitValue() Expression {
+	num := p.currentToken().value
+	if !p.currentTokenIs(TokenInt) {
+		return newErrorf("Not a int: %s", num)
+	}
+	n, err := strconv.ParseInt(num, 10, 64)
+	if err != nil {
+		return newError(err)
+	}
+	p.advance()
+	return &DigitValue{n}
+}
+
+// Parse a digit string.
+func (p *parser) parseDigitString() Expression {
+	if !p.currentTokenIs(TokenInt) {
+		return newErrorf("Invalid digit string: %s", p.currentToken().value)
+	}
+	expr := &DigitString{Value: p.currentToken().value}
+	p.advance()
+	return expr
+}
+
+// Parse a list of digits.
+func (p *parser) parseDigitList() Expression {
+	p.advance()
+	expr := &DigitList{}
+	for !p.currentTokenIs(TokenRCurly) {
+		next := p.parseDigitValue()
+		if isError(next) {
+			return next
+		}
+		expr.Value = append(expr.Value, next.(*DigitValue).Value)
+		if p.currentTokenIs(TokenRCurly) {
+			break
+		}
+		if p.currentTokenIs(TokenComma) {
+			p.advance()
+		}
+	}
+	p.advance()
+	return expr
+}
+
+// Parse a digit string or list.
+func (p *parser) parseStringOrList() Expression {
+	if p.currentTokenIs(TokenLCurly) {
+		return p.parseDigitList()
+	}
+	return p.parseDigitString()
+}
+
+// Parse a number.
+func (p *parser) parseNumber() Expression {
+	expr := &NumberLiteral{
+		Int:    &DigitValue{0},
+		Nonrep: &DigitValue{0},
+		Rep:    &DigitValue{0},
+	}
+	if !p.currentTokenIs(TokenDot) {
+		expr.Int = p.parseStringOrList()
+		if isError(expr.Int) {
+			return expr.Int
+		}
+	}
+	return p.parseFracPart(expr)
+}
+
 // Parse the fraction part of a number.
 func (p *parser) parseFracPart(expr *NumberLiteral) Expression {
 	if !p.currentTokenIs(TokenDot) {
 		return expr
 	}
 	p.advance()
-	if p.currentTokenIs(TokenInt) {
-		expr.Nonrep = p.currentToken().value
-		p.advance()
+	if !p.currentTokenIs(TokenLParen) {
+		expr.Nonrep = p.parseStringOrList()
+		if isError(expr.Nonrep) {
+			return expr.Nonrep
+		}
 	}
 
 	if p.currentTokenIs(TokenLParen) {
 		p.advance()
-		if !p.currentTokenIs(TokenInt) {
-			return newError("Period must be a series of digits")
+		expr.Rep = p.parseStringOrList()
+		if isError(expr.Rep) {
+			return expr.Rep
 		}
-		expr.Rep = p.currentToken().value
-		p.advance()
 		if !p.currentTokenIs(TokenRParen) {
 			return newError("Missing closing parenthesis")
 		}
@@ -161,17 +230,7 @@ func (p *parser) parseFracPart(expr *NumberLiteral) Expression {
 	return expr
 }
 
-// Parse a number.
-func (p *parser) parseNumber() Expression {
-	expr := &NumberLiteral{Int: "0"}
-	if p.currentTokenIs(TokenInt) {
-		clean := strings.ReplaceAll(p.currentToken().value, "_", "")
-		expr.Int = clean
-		p.advance()
-	}
-	return p.parseFracPart(expr)
-}
-
+// Parse base literal.
 func (p *parser) parseBaseLiteral() Expression {
 	p.advance()
 	if !p.currentTokenIs(TokenInt) {
