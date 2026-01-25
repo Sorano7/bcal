@@ -18,7 +18,10 @@ const (
 	TokenRParen
 	TokenLBracket
 	TokenRBracket
+	TokenLCurly
+	TokenRCurly
 	TokenArrow
+	TokenComma
 )
 
 const (
