@@ -125,3 +125,8 @@ func (n Rational) Div(other Rational) (Rational, error) {
 	n.denom *= other.num
 	return n.normalize(), nil
 }
+
+func (n Rational) Neg() Rational {
+	n.num = -n.num
+	return n
+}
