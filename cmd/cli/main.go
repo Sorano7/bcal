@@ -1,7 +1,7 @@
 package main
 
-import "calculator/internal/evaluator"
+import "calculator/internal/vm"
 
 func main() {
-	evaluator.StartREPL()
+	vm.StartREPL()
 }
