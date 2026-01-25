@@ -40,6 +40,25 @@ func newRational(num, denom, base int64) Rational {
 	return r.normalize()
 }
 
+// Construct a new rational from a decimal.
+//
+// I, N, R: the value of the integer, non-repeating, repeating parts.
+//
+// n, r: the number of digits of the non-repeating and repeating parts.
+func newRationalFromDec(I, N, R, n, r, base int64) Rational {
+	var num, denom int64
+
+	if r == 0 {
+		denom = intPow(base, int64(n))
+		num = I*denom + int64(N)
+	} else {
+		x := (intPow(base, int64(r)) - 1)
+		denom = intPow(base, int64(n)) * x
+		num = I*denom + N*x + R
+	}
+	return newRational(num, denom, base)
+}
+
 // The absolute value of the rational.
 func (n Rational) Abs() Rational {
 	if n.Sign() == -1 {
