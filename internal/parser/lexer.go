@@ -38,11 +38,11 @@ func newLexer(src string) *lexer {
 		src:    src,
 		tokens: make([]token, 0),
 		patterns: []pattern{
-			{regexp.MustCompile(`[0-9A-Za-z_]+`), TokenInt},
+			{regexp.MustCompile(`[0-9A-Za-z_]+`), TokenAlphaNum},
 			{regexp.MustCompile(`=`), TokenEqual},
 			{regexp.MustCompile(`\.`), TokenDot},
 			{regexp.MustCompile(`\+`), TokenPlus},
-			{regexp.MustCompile(`->`), TokenArrow},
+			{regexp.MustCompile(`#`), TokenHash},
 			{regexp.MustCompile(`-`), TokenDash},
 			{regexp.MustCompile(`\*`), TokenStar},
 			{regexp.MustCompile(`/`), TokenSlash},
