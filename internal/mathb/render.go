@@ -8,22 +8,33 @@ import (
 
 const (
 	// The digit representations.
-	Digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	Digits             = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	MaxBaseAlnum int64 = int64(len(Digits))
 )
 
-func (n Rational) RatString() string {
-	return fmt.Sprintf("(%d/%d)_%d", n.num, n.denom, n.base)
+// Render the rational as p/q_b.
+func (n Rational) renderRational(alnum bool) string {
+	num := renderIntInBase(n.num, n.base, alnum)
+	denom := renderIntInBase(n.denom, n.base, alnum)
+	return fmt.Sprintf("[%d](%s / %s)", n.base, num, denom)
+}
+
+// Render a rational to a string.
+func (n Rational) Render(useAlphaNum, inRational bool) string {
+	if n.base > MaxBaseAlnum {
+		useAlphaNum = false
+	}
+	if inRational {
+		return n.renderRational(useAlphaNum)
+	}
+	if n.terminatesInBase() {
+		return n.renderTerminating(useAlphaNum)
+	}
+	return n.renderRepeating(useAlphaNum)
 }
 
 func (n Rational) String() string {
-	switch {
-	case n.base >= int64(len(Digits)):
-		return n.renderDecimalWithBase()
-	case n.terminatesInBase():
-		return n.renderTerminating()
-	default:
-		return n.renderRepeating()
-	}
+	return n.Render(n.base <= MaxBaseAlnum, false)
 }
 
 // Get the sign symbol for this rational.
@@ -35,15 +46,8 @@ func (n Rational) signSymbol() string {
 	return sign
 }
 
-// Render a int in the target base.
-func renderIntInBase(n, base int64) string {
-	maxBase := len(Digits)
-	if base > int64(maxBase) {
-		panic(fmt.Sprintf("Invalid base: %d", base))
-	}
-	if n == 0 {
-		return string(Digits[0])
-	}
+// Convert an integer into a list of digits in base.
+func intToList(n, base int64) []int64 {
 	var digits []int64
 	for n > 0 {
 		r := n % base
@@ -51,18 +55,42 @@ func renderIntInBase(n, base int64) string {
 		digits = append(digits, r)
 	}
 	slices.Reverse(digits)
-	return foldToString(digits, base)
+	return digits
+}
+
+// Render a int in the target base.
+func renderIntInBase(n, base int64, alnum bool) string {
+	if base > MaxBaseAlnum {
+		panic(fmt.Sprintf("Invalid base: %d", base))
+	}
+	if n == 0 {
+		return string(Digits[0])
+	}
+	digits := intToList(n, base)
+	if alnum {
+		return foldToString(digits, base)
+	}
+	return digitListString(digits)
+}
+
+// Convert a digit list to a string.
+func digitListString(digits []int64) string {
+	var strs []string
+	for _, d := range digits {
+		strs = append(strs, fmt.Sprint(d))
+	}
+	return fmt.Sprintf("{%s}", strings.Join(strs, ", "))
 }
 
 // Render a terminating rational in its base digits.
-func (n Rational) renderTerminating() string {
+func (n Rational) renderTerminating(alnum bool) string {
 	var sb strings.Builder
 	sb.WriteString(n.signSymbol())
 
 	q, r := n.Abs().Divmod()
-	sb.WriteString(renderIntInBase(q, n.base))
+	sb.WriteString(renderIntInBase(q, n.base, alnum))
 	if r != 0 {
-		nonrep, _ := n.splitFrac()
+		nonrep, _ := n.splitFrac(alnum)
 		fmt.Fprintf(&sb, ".%s", nonrep)
 	}
 	return sb.String()
@@ -83,15 +111,15 @@ func (n Rational) renderDecimalWithBase() string {
 }
 
 // Render the rational as a repeating decimal in its base digits.
-func (n Rational) renderRepeating() string {
+func (n Rational) renderRepeating(alnum bool) string {
 	q, _ := n.Abs().Divmod()
-	nonrep, rep := n.splitFrac()
+	nonrep, rep := n.splitFrac(alnum)
 
-	return fmt.Sprintf("%s.%s(%s)", renderIntInBase(q, n.base), nonrep, rep)
+	return fmt.Sprintf("%s.%s(%s)", renderIntInBase(q, n.base, alnum), nonrep, rep)
 }
 
-// Get the repeating part of this rational, converted to its base digits.
-func (n Rational) splitFrac() (string, string) {
+// Get the repeating part of this rational, converted to its base digits or list.
+func (n Rational) splitFrac(alnum bool) (string, string) {
 	_, r := n.Abs().Divmod()
 
 	seen := make(map[int64]int)
@@ -114,7 +142,10 @@ func (n Rational) splitFrac() (string, string) {
 	nonrep := digits[:split]
 	rep := digits[split:]
 
-	return foldToString(nonrep, n.base), foldToString(rep, n.base)
+	if alnum {
+		return foldToString(nonrep, n.base), foldToString(rep, n.base)
+	}
+	return digitListString(nonrep), digitListString(rep)
 }
 
 // Fold a slice of int to a string in the base.
