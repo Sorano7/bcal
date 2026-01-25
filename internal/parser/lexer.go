@@ -53,6 +53,9 @@ func newLexer(src string) *lexer {
 			{regexp.MustCompile(`\)`), TokenRParen},
 			{regexp.MustCompile(`\[`), TokenLBracket},
 			{regexp.MustCompile(`\]`), TokenRBracket},
+			{regexp.MustCompile(`\{`), TokenLCurly},
+			{regexp.MustCompile(`\}`), TokenRCurly},
+			{regexp.MustCompile(`,`), TokenComma},
 		},
 	}
 }
