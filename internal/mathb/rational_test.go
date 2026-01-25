@@ -9,12 +9,12 @@ import (
 func assertEqual(value, want mathb.Rational, t *testing.T) {
 	if value.Cmp(want) != 0 {
 		t.Fatalf("want: %s (%s), got: %s (%s)",
-			want, want.RatString(), value, value.RatString())
+			want, want.Render(false, true), value, value.Render(false, true))
 	}
 }
 
 func printExpr(a, b, result mathb.Rational) {
-	fmt.Printf("%s <op> %s = %s\n", a.RatString(), b.RatString(), result.RatString())
+	fmt.Printf("%s <op> %s = %s\n", a.Render(false, true), b.Render(false, true), result.Render(false, true))
 }
 
 func TestParsingDigits(t *testing.T) {
