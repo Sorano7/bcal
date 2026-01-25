@@ -2,9 +2,9 @@ package parser
 
 import (
 	"fmt"
-	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 )
 
 // A parser for constructing AST.
@@ -43,157 +43,225 @@ func (p *parser) currentTokenIs(ts ...tokenType) bool {
 	return slices.Contains(ts, p.currentToken().typeof)
 }
 
+// If the next token is any of the arguments.
+func (p *parser) nextNTokenIs(n int, ts ...tokenType) bool {
+	if p.pos+n >= len(p.tokens) {
+		return false
+	}
+	return slices.Contains(ts, p.tokens[p.pos+n].typeof)
+}
+
 // Parse a source string.
-func Parse(src string) (Expression, error) {
+func Parse(src string) (Statement, error) {
 	tokens, err := Tokenize(src)
 	if err != nil {
 		return nil, err
 	}
 	p := newParser(tokens)
-	return p.parseExpr(Lowest)
+	stmt := p.parseStmt()
+	if isError(stmt) {
+		return nil, fmt.Errorf("%s", stmt.(*ErrorNode).Msg)
+	}
+	return stmt, nil
+}
+
+// Parse a statement.
+func (p *parser) parseStmt() Statement {
+	switch {
+	case p.currentTokenIs(TokenAt) && p.nextNTokenIs(1, TokenInt) && p.nextNTokenIs(2, TokenEqual):
+		return p.parseAssignment()
+	}
+	stmt := &ExprStatement{}
+	stmt.Expr = p.parseExpr(Lowest)
+	if isError(stmt.Expr) {
+		return stmt.Expr.(*ErrorNode)
+	}
+	return stmt
+}
+
+// Parse an assignment statement.
+func (p *parser) parseAssignment() Statement {
+	stmt := &AssignStatement{}
+	stmt.Target = p.parseExpr(Lowest)
+	if isError(stmt.Target) {
+		return stmt.Target.(*ErrorNode)
+	}
+	if !p.currentTokenIs(TokenEqual) {
+		return newErrorf("Missing equal sign in assignment to %s", stmt.Target)
+	}
+	p.advance()
+	stmt.Value = p.parseExpr(Lowest)
+	if isError(stmt.Value) {
+		return stmt.Value.(*ErrorNode)
+	}
+	return stmt
 }
 
 // Parse an expression with the precedence.
-func (p *parser) parseExpr(prec int) (Expression, error) {
+func (p *parser) parseExpr(prec int) Expression {
 	var expr Expression
-	var err error
 
 	current := p.currentToken()
 	switch current.typeof {
-	case TokenInt:
-		expr, err = p.parseNumber()
+	case TokenInt, TokenDot:
+		expr = p.parseNumber()
 	case TokenDash:
-		expr, err = p.parsePrefix()
+		expr = p.parsePrefix()
 	case TokenLParen:
-		expr, err = p.parseGroup()
+		expr = p.parseGroup()
 	case TokenLBracket:
-		expr, err = p.parseBaseNumber()
+		expr = p.parseBaseAnnotation()
+	case TokenAt:
+		expr = p.parseIdent()
+	default:
+		return newErrorf("Invalid syntax: %s", current.value)
 	}
-	if err != nil {
-		return nil, err
-	}
-	if p.atEof() {
-		return expr, nil
+	if isError(expr) || p.atEof() {
+		return expr
 	}
 	return p.handleInfix(prec, expr)
 }
 
 // Continue parsing infix for as long as the precedence allow.
-func (p *parser) handleInfix(prec int, expr Expression) (Expression, error) {
-	var err error
+func (p *parser) handleInfix(prec int, expr Expression) Expression {
 	for !p.atEof() && prec < p.currentToken().prec() {
 		switch {
 		case p.currentTokenIs(TokenPlus, TokenDash, TokenStar, TokenSlash, TokenPercent, TokenCaret):
-			expr, err = p.parseInfix(expr)
-		default:
-			return expr, nil
+			return p.parseInfix(expr)
+		case p.currentTokenIs(TokenArrow):
+			return p.parseOutputBase(expr)
 		}
 	}
-	if err != nil {
-		return nil, err
-	}
-	return expr, nil
+	return expr
 }
 
 // Parse the fraction part of a number.
-func (p *parser) parseFracPart(expr *NumberLiteral) (Expression, error) {
-	if p.currentTokenIs(TokenRep) {
-		clean := regexp.MustCompile(`[0-9A-Za-z]+`).FindString(p.currentToken().value)
-		expr.Rep = clean
-		p.advance()
-		return expr, nil
+func (p *parser) parseFracPart(expr *NumberLiteral) Expression {
+	if !p.currentTokenIs(TokenDot) {
+		return expr
 	}
-
-	if p.currentTokenIs(TokenNonrep) {
-		noDot := p.currentToken().value[1:]
-		expr.Nonrep = noDot
+	p.advance()
+	if p.currentTokenIs(TokenInt) {
+		expr.Nonrep = p.currentToken().value
 		p.advance()
 	}
 
 	if p.currentTokenIs(TokenLParen) {
 		p.advance()
 		if !p.currentTokenIs(TokenInt) {
-			return nil, fmt.Errorf("Period must be a series of digits")
+			return newError("Period must be a series of digits")
 		}
 		expr.Rep = p.currentToken().value
 		p.advance()
 		if !p.currentTokenIs(TokenRParen) {
-			return nil, fmt.Errorf("Missing closing parenthesis")
+			return newError("Missing closing parenthesis")
 		}
 		p.advance()
 	}
-	return expr, nil
+	return expr
 }
 
 // Parse a number.
-func (p *parser) parseNumber() (Expression, error) {
+func (p *parser) parseNumber() Expression {
 	expr := &NumberLiteral{Int: "0"}
 	if p.currentTokenIs(TokenInt) {
-		expr.Int = p.currentToken().value
+		clean := strings.ReplaceAll(p.currentToken().value, "_", "")
+		expr.Int = clean
 		p.advance()
 	}
 	return p.parseFracPart(expr)
 }
 
-// Parse a number with base annotation.
-func (p *parser) parseBaseNumber() (Expression, error) {
+func (p *parser) parseBaseLiteral() Expression {
 	p.advance()
 	if !p.currentTokenIs(TokenInt) {
-		return nil, fmt.Errorf("Invalid base annotation: not an int")
+		return newError("Invalid base annotation: not an int")
 	}
 	lit := p.currentToken().value
 	base, err := strconv.ParseInt(lit, 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid base annotation: %s", err)
+		return newErrorf("Invalid base annotation: %s", err)
 	}
 	p.advance()
 	if !p.currentTokenIs(TokenRBracket) {
-		return nil, fmt.Errorf("Missing closing bracket")
+		return newError("Missing closing bracket")
 	}
 	p.advance()
-	expr, err := p.parseNumber()
-	if err != nil {
-		return nil, err
+
+	return &BaseAnnotation{Base: base}
+
+}
+
+// Parse a number with base annotation.
+func (p *parser) parseBaseAnnotation() Expression {
+	expr := p.parseBaseLiteral()
+	if isError(expr) {
+		return expr
 	}
-	expr.(*NumberLiteral).Base = int(base)
-	return expr, nil
+	e := expr.(*BaseAnnotation)
+	e.Expr = p.parseExpr(Base)
+	if isError(e.Expr) {
+		return e.Expr
+	}
+	return e
 }
 
 // Parse prefix expressions.
-func (p *parser) parsePrefix() (Expression, error) {
+func (p *parser) parsePrefix() Expression {
 	expr := &PrefixExpr{Operator: p.currentToken().value}
 	p.advance()
-	right, err := p.parseExpr(Prefix)
-	if err != nil {
-		return nil, err
+	expr.Right = p.parseExpr(Prefix)
+	if isError(expr.Right) {
+		return expr.Right
 	}
-	expr.Right = right
-	return expr, nil
+	return expr
 }
 
 // Parse infix expressions.
-func (p *parser) parseInfix(left Expression) (Expression, error) {
+func (p *parser) parseInfix(left Expression) Expression {
 	expr := &InfixExpr{Left: left, Operator: p.currentToken().value}
 	prec := p.currentToken().prec()
 	p.advance()
-	right, err := p.parseExpr(prec)
-	if err != nil {
-		return nil, err
+	expr.Right = p.parseExpr(prec)
+	if isError(expr.Right) {
+		return expr.Right
 	}
-	expr.Right = right
-	return expr, nil
+	return expr
 }
 
 // Parse group expressions.
-func (p *parser) parseGroup() (Expression, error) {
+func (p *parser) parseGroup() Expression {
 	p.advance()
-	expr, err := p.parseExpr(Lowest)
-	if err != nil {
-		return nil, err
+	expr := p.parseExpr(Lowest)
+	if isError(expr) {
+		return expr
 	}
 	if !p.currentTokenIs(TokenRParen) {
-		return nil, fmt.Errorf("Missing right parenthesis")
+		return newError("Missing right parenthesis")
 	}
 	p.advance()
-	return expr, nil
+	return expr
+}
+
+// Parse an identifier.
+func (p *parser) parseIdent() Expression {
+	p.advance()
+	expr := &Identifier{Name: ""}
+	if !p.currentTokenIs(TokenInt) {
+		return expr
+	}
+	expr.Name = p.currentToken().value
+	p.advance()
+	return expr
+}
+
+// Parse output expressions.
+func (p *parser) parseOutputBase(left Expression) Expression {
+	p.advance()
+	base := p.parseBaseLiteral()
+	if isError(base) {
+		return base
+	}
+	expr := &OutputBase{Base: base.(*BaseAnnotation).Base, Expr: left}
+	return expr
 }
