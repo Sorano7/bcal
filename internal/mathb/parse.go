@@ -7,8 +7,8 @@ import (
 )
 
 // Parse a rational from parts.
-func FromParts(intPart, nonrep, rep string, base int) (Rational, error) {
-	if base >= len(Digits) {
+func FromParts(intPart, nonrep, rep string, base int64) (Rational, error) {
+	if base >= int64(len(Digits)) {
 		return Rational{}, fmt.Errorf("Base %d exceeds max representable base", base)
 	}
 	I, err := valueInBase(intPart, base)
@@ -30,23 +30,19 @@ func FromParts(intPart, nonrep, rep string, base int) (Rational, error) {
 	var num, denom int64
 
 	if r == 0 {
-		denom = intPow(int64(base), int64(n))
+		denom = intPow(base, int64(n))
 		num = I*denom + int64(N)
 	} else {
-		x := (intPow(int64(base), int64(r)) - 1)
-		denom = intPow(int64(base), int64(n)) * x
+		x := (intPow(base, int64(r)) - 1)
+		denom = intPow(base, int64(n)) * x
 		num = I*denom + N*x + R
 	}
 
-	return newRational(num, denom, int64(base)), nil
+	return newRational(num, denom, base), nil
 }
 
 // Initialize a rational from a string.
-func FromString(lit string, base int) (Rational, error) {
-	if base >= len(Digits) {
-		return Rational{}, fmt.Errorf("Base %d exceeds max representable base", base)
-	}
-
+func FromString(lit string, base int64) (Rational, error) {
 	parts := strings.Split(lit, ".")
 	if len(parts) > 2 {
 		return Rational{}, fmt.Errorf("Invalid literal")
@@ -67,11 +63,11 @@ func FromString(lit string, base int) (Rational, error) {
 }
 
 // Parse the value of a string in the given base.
-func valueInBase(s string, base int) (int64, error) {
+func valueInBase(s string, base int64) (int64, error) {
 	if s == "" {
 		return 0, nil
 	}
-	x := 0
+	var x int64 = 0
 	for _, c := range s {
 		val, err := charToVal(c, base)
 		if err != nil {
@@ -83,15 +79,15 @@ func valueInBase(s string, base int) (int64, error) {
 }
 
 // Convert a character to digit value.
-func charToVal(c rune, base int) (int, error) {
+func charToVal(c rune, base int64) (int64, error) {
 	for i, digit := range Digits {
 		if c != digit {
 			continue
 		}
-		if i >= base {
-			return 0, fmt.Errorf("Digit %c out of range for base %d", c, base)
+		if int64(i) >= base {
+			return 0, fmt.Errorf("Digit %c (%d) out of range for base %d", c, i, base)
 		}
-		return i, nil
+		return int64(i), nil
 	}
 	return 0, fmt.Errorf("Invalid character: %c", c)
 }
