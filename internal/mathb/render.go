@@ -2,6 +2,7 @@ package mathb
 
 import (
 	"fmt"
+	"math/big"
 	"slices"
 	"strings"
 )
@@ -13,32 +14,29 @@ const (
 )
 
 // Render the rational as p/q_b.
-func (n Rational) renderRational(alnum bool) string {
+func (n *Rational) renderRational(alnum bool) string {
 	num := renderIntInBase(n.num, n.base, alnum)
 	denom := renderIntInBase(n.denom, n.base, alnum)
 	return fmt.Sprintf("[%d](%s / %s)", n.base, num, denom)
 }
 
 // Render a rational to a string.
-func (n Rational) Render(useAlphaNum, inRational bool) string {
+func (n *Rational) Render(useAlphaNum, inRational bool) string {
 	if n.base > MaxBaseAlnum {
 		useAlphaNum = false
 	}
 	if inRational {
 		return n.renderRational(useAlphaNum)
 	}
-	if n.terminatesInBase() {
-		return n.renderTerminating(useAlphaNum)
-	}
-	return n.renderRepeating(useAlphaNum)
+	return n.renderDecimal(useAlphaNum)
 }
 
-func (n Rational) String() string {
+func (n *Rational) String() string {
 	return n.Render(n.base <= MaxBaseAlnum, false)
 }
 
 // Get the sign symbol for this rational.
-func (n Rational) signSymbol() string {
+func (n *Rational) signSymbol() string {
 	sign := ""
 	if n.Sign() == -1 {
 		sign = "-"
@@ -47,23 +45,26 @@ func (n Rational) signSymbol() string {
 }
 
 // Convert an integer into a list of digits in base.
-func intToList(n, base int64) []int64 {
+func intToList(n *big.Int, base int64) []int64 {
 	var digits []int64
-	for n > 0 {
-		r := n % base
-		n = n / base
-		digits = append(digits, r)
+	b := new(big.Int)
+	b.SetInt64(base)
+	for n.Sign() > 0 {
+		b.Mod(n, b)
+		digits = append(digits, b.Int64())
+		b.SetInt64(base)
+		n.Div(n, b)
 	}
 	slices.Reverse(digits)
 	return digits
 }
 
 // Render a int in the target base.
-func renderIntInBase(n, base int64, alnum bool) string {
+func renderIntInBase(n *big.Int, base int64, alnum bool) string {
 	if base > MaxBaseAlnum {
 		panic(fmt.Sprintf("Invalid base: %d", base))
 	}
-	if n == 0 {
+	if n.Sign() == 0 {
 		return string(Digits[0])
 	}
 	digits := intToList(n, base)
@@ -82,70 +83,38 @@ func digitListString(digits []int64) string {
 	return fmt.Sprintf("{%s}", strings.Join(strs, ", "))
 }
 
-// Render a terminating rational in its base digits.
-func (n Rational) renderTerminating(alnum bool) string {
-	var sb strings.Builder
-	sb.WriteString(n.signSymbol())
-
-	q, r := n.Abs().Divmod()
-	sb.WriteString(renderIntInBase(q, n.base, alnum))
-	if r != 0 {
-		nonrep, _ := n.splitFrac(alnum)
-		fmt.Fprintf(&sb, ".%s", nonrep)
-	}
-	return sb.String()
-}
-
-// Render the rational as a base-10 decimal with base notation.
-func (n Rational) renderDecimalWithBase() string {
-	var sb strings.Builder
-	sb.WriteString(n.signSymbol())
-
-	q, r := n.Abs().Divmod()
-	fmt.Fprint(&sb, q)
-	if r != 0 {
-		fmt.Fprintf(&sb, ".%d", r)
-	}
-	fmt.Fprintf(&sb, "(%d)", n.base)
-	return sb.String()
-}
-
-// Render the rational as a repeating decimal in its base digits.
-func (n Rational) renderRepeating(alnum bool) string {
-	q, _ := n.Abs().Divmod()
-	nonrep, rep := n.splitFrac(alnum)
-
-	return fmt.Sprintf("%s.%s(%s)", renderIntInBase(q, n.base, alnum), nonrep, rep)
-}
-
-// Get the repeating part of this rational, converted to its base digits or list.
-func (n Rational) splitFrac(alnum bool) (string, string) {
-	_, r := n.Abs().Divmod()
-
-	seen := make(map[int64]int)
-	var digits []int64
-
-	for r != 0 {
-		seen[r] = len(digits)
-		r *= n.base
-		digits = append(digits, r/n.denom)
-		r %= n.denom
-		if _, ok := seen[r]; ok {
-			break
-		}
-	}
-
-	split := len(digits)
-	if r != 0 {
-		split = seen[r]
-	}
-	nonrep := digits[:split]
-	rep := digits[split:]
-
+// Convert two lists of nonrepeating and repeating parts of the fraction to a string.
+func fracToString(nonrep, rep []int64, base int64, alnum bool) string {
+	var n, r string
 	if alnum {
-		return foldToString(nonrep, n.base), foldToString(rep, n.base)
+		n = foldToString(nonrep, base)
+	} else {
+		n = digitListString(nonrep)
 	}
-	return digitListString(nonrep), digitListString(rep)
+	if rep == nil {
+		return fmt.Sprintf(".%s", n)
+	}
+	if alnum {
+		r = foldToString(rep, base)
+	} else {
+		r = digitListString(rep)
+	}
+	return fmt.Sprintf(".%s(%s)", n, r)
+}
+
+// Render a terminating rational in its base digits.
+func (n *Rational) renderDecimal(alnum bool) string {
+	var sb strings.Builder
+	sb.WriteString(n.signSymbol())
+	tmp := *n
+
+	q, r := tmp.Abs().Divmod()
+	sb.WriteString(renderIntInBase(q, tmp.base, alnum))
+	if r.Sign() != 0 {
+		nonrep, rep := tmp.splitFrac()
+		fmt.Fprint(&sb, fracToString(nonrep, rep, tmp.base, alnum))
+	}
+	return sb.String()
 }
 
 // Fold a slice of int to a string in the base.
