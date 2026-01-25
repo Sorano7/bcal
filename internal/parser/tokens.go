@@ -4,7 +4,7 @@ type tokenType int
 
 const (
 	EOF tokenType = iota
-	TokenInt
+	TokenAlphaNum
 	TokenEqual
 	TokenDot
 	TokenPlus
@@ -20,7 +20,7 @@ const (
 	TokenRBracket
 	TokenLCurly
 	TokenRCurly
-	TokenArrow
+	TokenHash
 	TokenComma
 )
 
@@ -35,7 +35,7 @@ const (
 )
 
 var opPrec = map[tokenType]int{
-	TokenArrow:   Output,
+	TokenHash:    Output,
 	TokenPlus:    PlusMinus,
 	TokenDash:    PlusMinus,
 	TokenStar:    MulDiv,
