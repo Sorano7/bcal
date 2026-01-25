@@ -5,22 +5,26 @@ type tokenType int
 const (
 	EOF tokenType = iota
 	TokenInt
-	TokenNonrep
-	TokenRep
+	TokenEqual
+	TokenDot
 	TokenPlus
 	TokenDash
 	TokenStar
 	TokenSlash
 	TokenPercent
 	TokenCaret
+	TokenAt
 	TokenLParen
 	TokenRParen
 	TokenLBracket
 	TokenRBracket
+	TokenArrow
 )
 
 const (
 	Lowest int = iota
+	Output
+	Base
 	PlusMinus
 	MulDiv
 	Power
@@ -28,6 +32,7 @@ const (
 )
 
 var opPrec = map[tokenType]int{
+	TokenArrow:   Output,
 	TokenPlus:    PlusMinus,
 	TokenDash:    PlusMinus,
 	TokenStar:    MulDiv,
