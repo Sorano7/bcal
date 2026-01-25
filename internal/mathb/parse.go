@@ -7,18 +7,18 @@ import (
 )
 
 // Parse a rational from lists of digits.
-func ParseDigitList(intPart, nonrep, rep []int64, base int64) (Rational, error) {
+func ParseDigitList(intPart, nonrep, rep []int64, base int64) (*Rational, error) {
 	I, err := basebAcc(intPart, base)
 	if err != nil {
-		return Rational{}, err
+		return nil, err
 	}
 	N, err := basebAcc(nonrep, base)
 	if err != nil {
-		return Rational{}, err
+		return nil, err
 	}
 	R, err := basebAcc(rep, base)
 	if err != nil {
-		return Rational{}, err
+		return nil, err
 	}
 
 	n, r := int64(len(nonrep)), int64(len(rep))
@@ -27,34 +27,34 @@ func ParseDigitList(intPart, nonrep, rep []int64, base int64) (Rational, error) 
 }
 
 // Parse a rational from numerator and denominator with base respect.
-func ParseRational(num, denom string, base int64) (Rational, error) {
+func ParseRational(num, denom string, base int64) (*Rational, error) {
 	n, err := valueInBase(num, base)
 	if err != nil {
-		return Rational{}, err
+		return nil, err
 	}
 	d, err := valueInBase(denom, base)
 	if err != nil {
-		return Rational{}, err
+		return nil, err
 	}
 	return newRational(n, d, base), nil
 }
 
 // Parse a rational from parts.
-func ParseParts(intPart, nonrep, rep string, base int64) (Rational, error) {
+func ParseParts(intPart, nonrep, rep string, base int64) (*Rational, error) {
 	if base >= int64(len(Digits)) {
-		return Rational{}, fmt.Errorf("Base %d exceeds max representable base", base)
+		return nil, fmt.Errorf("Base %d exceeds max representable base", base)
 	}
 	I, err := valueInBase(intPart, base)
 	if err != nil {
-		return Rational{}, err
+		return nil, err
 	}
 	N, err := valueInBase(nonrep, base)
 	if err != nil {
-		return Rational{}, err
+		return nil, err
 	}
 	R, err := valueInBase(rep, base)
 	if err != nil {
-		return Rational{}, err
+		return nil, err
 	}
 
 	n := int64(len(nonrep))
@@ -64,10 +64,10 @@ func ParseParts(intPart, nonrep, rep string, base int64) (Rational, error) {
 }
 
 // Initialize a rational from a string.
-func ParseString(lit string, base int64) (Rational, error) {
+func ParseString(lit string, base int64) (*Rational, error) {
 	parts := strings.Split(lit, ".")
 	if len(parts) > 2 {
-		return Rational{}, fmt.Errorf("Invalid literal")
+		return nil, fmt.Errorf("Invalid literal")
 	}
 	intPart := parts[0]
 	nonrep := ""
@@ -75,9 +75,9 @@ func ParseString(lit string, base int64) (Rational, error) {
 	if len(parts) == 2 {
 		nonrep = parts[1]
 		regex := regexp.MustCompile(`\([0-9A-Za-z]+\)`)
-		match := regex.FindStringIndex(parts[1])
+		match := regex.FindStringIndex(nonrep)
 		if match != nil {
-			rep = nonrep[match[0]:match[1]]
+			rep = nonrep[match[0]+1 : match[1]-1]
 			nonrep = nonrep[:match[0]]
 		}
 	}
