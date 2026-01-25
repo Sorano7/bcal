@@ -69,17 +69,44 @@ func isError(n Node) bool {
 	return ok
 }
 
+type DigitValue struct {
+	Value int64
+}
+
+func (d *DigitValue) expr() {}
+func (d *DigitValue) String() string {
+	return fmt.Sprintf(`"digits": {"value": %d}`, d.Value)
+}
+
+type DigitString struct {
+	Value string
+}
+
+func (d *DigitString) expr() {}
+func (d *DigitString) String() string {
+	return fmt.Sprintf(`"digits": {"value": "%s"}`, d.Value)
+}
+
 // Represents a number literal.
 type NumberLiteral struct {
-	Int    string
-	Nonrep string
-	Rep    string
+	Int    Expression
+	Nonrep Expression
+	Rep    Expression
 }
 
 func (d *NumberLiteral) expr() {}
 func (d *NumberLiteral) String() string {
 	return fmt.Sprintf(`"number": {"int": "%s", "nonrep": "%s", "rep": "%s"}`,
 		d.Int, d.Nonrep, d.Rep)
+}
+
+type DigitList struct {
+	Value []int64
+}
+
+func (d *DigitList) expr() {}
+func (d *DigitList) String() string {
+	return fmt.Sprintf(`"digits": {"value": %v}`, d.Value)
 }
 
 // Represents an identifier.
