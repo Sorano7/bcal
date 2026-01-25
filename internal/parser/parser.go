@@ -67,7 +67,7 @@ func Parse(src string) (Statement, error) {
 // Parse a statement.
 func (p *parser) parseStmt() Statement {
 	switch {
-	case p.currentTokenIs(TokenAt) && p.nextNTokenIs(1, TokenInt) && p.nextNTokenIs(2, TokenEqual):
+	case p.currentTokenIs(TokenAt) && p.nextNTokenIs(1, TokenAlphaNum) && p.nextNTokenIs(2, TokenEqual):
 		return p.parseAssignment()
 	}
 	stmt := &ExprStatement{}
@@ -102,7 +102,7 @@ func (p *parser) parseExpr(prec int) Expression {
 
 	current := p.currentToken()
 	switch current.typeof {
-	case TokenInt, TokenDot, TokenLCurly:
+	case TokenAlphaNum, TokenDot, TokenLCurly:
 		expr = p.parseNumber()
 	case TokenDash:
 		expr = p.parsePrefix()
@@ -126,9 +126,12 @@ func (p *parser) handleInfix(prec int, expr Expression) Expression {
 	for !p.atEof() && prec < p.currentToken().prec() {
 		switch {
 		case p.currentTokenIs(TokenPlus, TokenDash, TokenStar, TokenSlash, TokenPercent, TokenCaret):
-			return p.parseInfix(expr)
-		case p.currentTokenIs(TokenArrow):
-			return p.parseOutputBase(expr)
+			expr = p.parseInfix(expr)
+		case p.currentTokenIs(TokenHash):
+			expr = p.parseOutputExpr(expr)
+		}
+		if isError(expr) {
+			return expr
 		}
 	}
 	return expr
@@ -137,7 +140,7 @@ func (p *parser) handleInfix(prec int, expr Expression) Expression {
 // Parse a digit value.
 func (p *parser) parseDigitValue() Expression {
 	num := p.currentToken().value
-	if !p.currentTokenIs(TokenInt) {
+	if !p.currentTokenIs(TokenAlphaNum) {
 		return newErrorf("Not a int: %s", num)
 	}
 	n, err := strconv.ParseInt(num, 10, 64)
@@ -150,7 +153,7 @@ func (p *parser) parseDigitValue() Expression {
 
 // Parse a digit string.
 func (p *parser) parseDigitString() Expression {
-	if !p.currentTokenIs(TokenInt) {
+	if !p.currentTokenIs(TokenAlphaNum) {
 		return newErrorf("Invalid digit string: %s", p.currentToken().value)
 	}
 	expr := &DigitString{Value: p.currentToken().value}
@@ -233,7 +236,7 @@ func (p *parser) parseFracPart(expr *NumberLiteral) Expression {
 // Parse base literal.
 func (p *parser) parseBaseLiteral() Expression {
 	p.advance()
-	if !p.currentTokenIs(TokenInt) {
+	if !p.currentTokenIs(TokenAlphaNum) {
 		return newError("Invalid base annotation: not an int")
 	}
 	lit := p.currentToken().value
@@ -306,7 +309,7 @@ func (p *parser) parseGroup() Expression {
 func (p *parser) parseIdent() Expression {
 	p.advance()
 	expr := &Identifier{Name: ""}
-	if !p.currentTokenIs(TokenInt) {
+	if !p.currentTokenIs(TokenAlphaNum) {
 		return expr
 	}
 	expr.Name = p.currentToken().value
@@ -314,13 +317,23 @@ func (p *parser) parseIdent() Expression {
 	return expr
 }
 
-// Parse output expressions.
-func (p *parser) parseOutputBase(left Expression) Expression {
+// Parse output expressions with arguments.
+func (p *parser) parseOutputExpr(left Expression) Expression {
 	p.advance()
-	base := p.parseBaseLiteral()
-	if isError(base) {
-		return base
+	expr := &OutputArguments{Args: make(map[string]string), Expr: left}
+	for p.currentTokenIs(TokenAlphaNum) && p.nextNTokenIs(1, TokenEqual) && p.nextNTokenIs(2, TokenAlphaNum) {
+		arg := p.currentToken().value
+		p.advance()
+		p.advance()
+		val := p.currentToken().value
+		p.advance()
+		if _, ok := expr.Args[arg]; ok {
+			return newErrorf("Duplicate argument: %s=%s", arg, val)
+		}
+		expr.Args[arg] = val
+		if p.currentTokenIs(TokenComma) {
+			p.advance()
+		}
 	}
-	expr := &OutputBase{Base: base.(*BaseAnnotation).Base, Expr: left}
 	return expr
 }
