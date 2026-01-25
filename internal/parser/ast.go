@@ -155,12 +155,12 @@ func (b *BaseAnnotation) String() string {
 }
 
 // Represents a output expression with base.
-type OutputBase struct {
-	Base int64
+type OutputArguments struct {
+	Args map[string]string
 	Expr Expression
 }
 
-func (o *OutputBase) expr() {}
-func (o *OutputBase) String() string {
-	return fmt.Sprintf(`"output": {"base": %d, "expr": {%s}}`, o.Base, o.Expr)
+func (o *OutputArguments) expr() {}
+func (o *OutputArguments) String() string {
+	return fmt.Sprintf(`"output": {"args": %v, "expr": {%s}}`, o.Args, o.Expr)
 }
