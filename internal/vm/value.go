@@ -20,16 +20,21 @@ type Value interface {
 }
 
 type Number struct {
-	Value mathb.Rational
+	Value      mathb.Rational
+	UseAlnum   bool
+	inRational bool
 }
 
 func (n *Number) Type() ValueType { return NumberValue }
 func (n *Number) String() string {
-	return n.Value.String()
+	return n.Value.Render(n.UseAlnum, n.inRational)
 }
 
 func newNumber(v mathb.Rational) *Number {
-	return &Number{Value: v}
+	return &Number{
+		Value:    v,
+		UseAlnum: true,
+	}
 }
 
 type Error struct {
