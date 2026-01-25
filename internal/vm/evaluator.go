@@ -11,8 +11,8 @@ func (v *VM) evalExpr(expr parser.Expression, base int64) Value {
 	switch e := expr.(type) {
 	case *parser.BaseAnnotation:
 		return v.evalIOBase(e.Expr, e.Base, e.Base)
-	case *parser.OutputBase:
-		return v.evalIOBase(e.Expr, base, e.Base)
+	case *parser.OutputArguments:
+		return v.handleOutput(e, base)
 	case *parser.NumberLiteral:
 		return v.evalNumber(e, base)
 	case *parser.PrefixExpr:
@@ -95,6 +95,8 @@ func (v *VM) evalPrefix(e *parser.PrefixExpr, base int64) Value {
 // Evaluate a number prefix.
 func (v *VM) evalNumberPrefix(op string, n *Number) Value {
 	switch op {
+	case "-":
+		return newNumber(n.Value.Neg())
 	default:
 		return newErrorf("Invalid prefix operation: %s<number>", op)
 	}
@@ -139,6 +141,7 @@ func (v *VM) evalNumberInfix(op string, left, right *Number) Value {
 	}
 }
 
+// Evaluate identifiers.
 func (v *VM) evalIdent(e *parser.Identifier) Value {
 	if e.Name != "" {
 		return v.getVar(e.Name)
@@ -146,5 +149,24 @@ func (v *VM) evalIdent(e *parser.Identifier) Value {
 	if v.lastVal != nil {
 		return v.lastVal
 	}
-	return newError("Undefined")
+	return newError("No result")
+}
+
+// Handle output arguments.
+func (v *VM) handleOutput(e *parser.OutputArguments, base int64) Value {
+	value := v.evalExpr(e.Expr, base)
+	if isError(value) {
+		return value
+	}
+	for arg, argv := range e.Args {
+		handler := getArgHandler(arg)
+		if handler == nil {
+			return newErrorf("Unknown output argument: %s", arg)
+		}
+		value = handler(argv, value)
+		if isError(value) {
+			return value
+		}
+	}
+	return value
 }
