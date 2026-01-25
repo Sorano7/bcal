@@ -3,6 +3,7 @@ package vm
 import (
 	"calculator/internal/mathb"
 	"calculator/internal/parser"
+	"fmt"
 )
 
 // Evaluate an expression.
@@ -40,12 +41,41 @@ func (v *VM) evalIOBase(expr parser.Expression, ibase, obase int64) Value {
 }
 
 // Evaluate a number expression.
-func (ev *VM) evalNumber(e *parser.NumberLiteral, base int64) Value {
-	v, err := mathb.FromParts(e.Int, e.Nonrep, e.Rep, base)
+func (v *VM) evalNumber(e *parser.NumberLiteral, base int64) Value {
+	i, err := evalDigit(e.Int, base)
 	if err != nil {
 		return newError(err)
 	}
-	return newNumber(v)
+	n, err := evalDigit(e.Nonrep, base)
+	if err != nil {
+		return newError(err)
+	}
+	r, err := evalDigit(e.Rep, base)
+	if err != nil {
+		return newError(err)
+	}
+	val, err := mathb.ParseDigitList(i, n, r, base)
+	if err != nil {
+		return newError(err)
+	}
+	return newNumber(val)
+}
+
+func evalDigit(expr parser.Expression, base int64) ([]int64, error) {
+	switch e := expr.(type) {
+	case *parser.DigitList:
+		return e.Value, nil
+	case *parser.DigitString:
+		v, err := mathb.StringToList(e.Value, base)
+		if err != nil {
+			return nil, err
+		}
+		return v, nil
+	case *parser.DigitValue:
+		return nil, nil
+	default:
+		return nil, fmt.Errorf("Invalid digit: %s", expr)
+	}
 }
 
 // Evaluate a prefix expression.
