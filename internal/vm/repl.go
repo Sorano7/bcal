@@ -45,9 +45,6 @@ MainLoop:
 		if !isError(result) {
 			v.lastVal = result
 		}
-		if result.String() == "" {
-			continue
-		}
 		fmt.Println(result)
 	}
 }

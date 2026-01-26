@@ -1,6 +1,8 @@
 package vm
 
-import "calculator/internal/parser"
+import (
+	"calculator/internal/parser"
+)
 
 // Execute a statement.
 func (v *VM) execute(stmt parser.Statement) Value {
