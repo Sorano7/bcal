@@ -23,18 +23,20 @@ type Number struct {
 	Value      *mathb.Rational
 	UseAlnum   bool
 	inRational bool
+	Prec       int
 }
 
 func (n *Number) Type() ValueType { return NumberValue }
 func (n *Number) String() string {
-	return n.Value.Render(n.UseAlnum, n.inRational)
+	return n.Value.Render(n.UseAlnum, n.inRational, n.Prec)
 }
 
-func newNumber(v *mathb.Rational) *Number {
+func newNumber(n *mathb.Rational) *Number {
 	return &Number{
-		Value:      v.Clone(),
+		Value:      n.Clone(),
 		UseAlnum:   true,
 		inRational: false,
+		Prec:       20,
 	}
 }
 
