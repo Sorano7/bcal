@@ -5,6 +5,10 @@ import (
 	"math/big"
 )
 
+const (
+	MaxRepeatDetect int = 1e6
+)
+
 // Represents a base rational in.Normalized form.
 type Rational struct {
 	num   *big.Int
@@ -95,7 +99,7 @@ func (n *Rational) Sign() int {
 func (n *Rational) Add(other *Rational) *Rational {
 	matchDenom(n, other)
 	n.num.Add(n.num, other.num)
-	return n.Normalize()
+	return n
 }
 
 // Split the rational into the quotient and remainder.
@@ -109,14 +113,14 @@ func (n *Rational) Divmod() (*big.Int, *big.Int) {
 func (n *Rational) Sub(other *Rational) *Rational {
 	matchDenom(n, other)
 	n.num.Sub(n.num, other.num)
-	return n.Normalize()
+	return n
 }
 
 // Sets n to the result of n * other.
 func (n *Rational) Mul(other *Rational) *Rational {
 	n.num.Mul(n.num, other.num)
 	n.denom.Mul(n.denom, other.denom)
-	return n.Normalize()
+	return n
 }
 
 // Sets n to the result of n / other.
@@ -126,7 +130,7 @@ func (n *Rational) Div(other *Rational) (*Rational, error) {
 	}
 	n.num.Mul(n.num, other.denom)
 	n.denom.Mul(n.denom, other.num)
-	return n.Normalize(), nil
+	return n, nil
 }
 
 // Sets n to the result of -n.
