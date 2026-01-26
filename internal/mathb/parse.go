@@ -2,41 +2,27 @@ package mathb
 
 import (
 	"fmt"
+	"math/big"
 	"regexp"
 	"strings"
 )
 
 // Parse a rational from lists of digits.
 func ParseDigitList(intPart, nonrep, rep []int64, base int64) (*Rational, error) {
-	I, err := basebAcc(intPart, base)
-	if err != nil {
-		return nil, err
-	}
-	N, err := basebAcc(nonrep, base)
-	if err != nil {
-		return nil, err
-	}
-	R, err := basebAcc(rep, base)
-	if err != nil {
-		return nil, err
-	}
-
-	n, r := int64(len(nonrep)), int64(len(rep))
-
-	return newRationalFromDec(I, N, R, n, r, base), nil
+	return newRationalFromDigits(intPart, nonrep, rep, base)
 }
 
 // Parse a rational from numerator and denominator with base respect.
 func ParseRational(num, denom string, base int64) (*Rational, error) {
-	n, err := valueInBase(num, base)
+	n, err := stringValueInBase(num, base)
 	if err != nil {
 		return nil, err
 	}
-	d, err := valueInBase(denom, base)
+	d, err := stringValueInBase(denom, base)
 	if err != nil {
 		return nil, err
 	}
-	return newRational(n, d, base), nil
+	return newRational(n, d, base).Clone(), nil
 }
 
 // Parse a rational from parts.
@@ -44,23 +30,19 @@ func ParseParts(intPart, nonrep, rep string, base int64) (*Rational, error) {
 	if base >= int64(len(Digits)) {
 		return nil, fmt.Errorf("Base %d exceeds max representable base", base)
 	}
-	I, err := valueInBase(intPart, base)
+	i, err := StringToList(intPart, base)
 	if err != nil {
 		return nil, err
 	}
-	N, err := valueInBase(nonrep, base)
+	n, err := StringToList(nonrep, base)
 	if err != nil {
 		return nil, err
 	}
-	R, err := valueInBase(rep, base)
+	r, err := StringToList(rep, base)
 	if err != nil {
 		return nil, err
 	}
-
-	n := int64(len(nonrep))
-	r := int64(len(rep))
-
-	return newRationalFromDec(I, N, R, n, r, base), nil
+	return newRationalFromDigits(i, n, r, base)
 }
 
 // Initialize a rational from a string.
@@ -84,21 +66,6 @@ func ParseString(lit string, base int64) (*Rational, error) {
 	return ParseParts(intPart, nonrep, rep, base)
 }
 
-// Base-b accummulation.
-func basebAcc(digits []int64, base int64) (int64, error) {
-	if digits == nil {
-		return 0, nil
-	}
-	var v int64 = 0
-	for _, d := range digits {
-		if d >= base {
-			return 0, fmt.Errorf("Digit %d out of range for base %d", d, base)
-		}
-		v = v*base + d
-	}
-	return v, nil
-}
-
 func StringToList(digits string, base int64) ([]int64, error) {
 	if digits == "" {
 		return nil, nil
@@ -115,15 +82,15 @@ func StringToList(digits string, base int64) ([]int64, error) {
 }
 
 // Parse the value of a string in the given base.
-func valueInBase(s string, base int64) (int64, error) {
+func stringValueInBase(s string, base int64) (*big.Int, error) {
 	if s == "" {
-		return 0, nil
+		return nil, nil
 	}
 	digits, err := StringToList(s, base)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return basebAcc(digits, base)
+	return digitsToInt(digits, base)
 }
 
 // Convert a character to digit value.
