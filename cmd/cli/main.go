@@ -1,7 +1,19 @@
 package main
 
-import "calculator/internal/vm"
+import (
+	"calculator/internal/vm"
+	"flag"
+	"fmt"
+	"strings"
+)
 
 func main() {
-	vm.StartREPL()
+	flag.Parse()
+	args := flag.Args()
+	if len(args) > 0 {
+		result := vm.Run(strings.Join(args, " "))
+		fmt.Println(result)
+	} else {
+		vm.StartREPL()
+	}
 }
