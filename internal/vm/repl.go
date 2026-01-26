@@ -5,6 +5,7 @@ import (
 	"calculator/internal/parser"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -16,10 +17,21 @@ const (
 	Exit
 )
 
+const MaxOutputChar = 100
+
+type repl struct {
+	maxOutput int
+}
+
+func newRepl() *repl {
+	return &repl{MaxOutputChar}
+}
+
 // Start an interactive repl.
 func StartREPL() {
 	scanner := bufio.NewScanner(os.Stdin)
 	v := newVM(10)
+	repl := newRepl()
 
 MainLoop:
 	for {
@@ -33,7 +45,7 @@ MainLoop:
 		}
 
 		if strings.HasPrefix(input, ":") {
-			switch v.handleCommand(input[1:]) {
+			switch repl.handleCommand(input[1:], v) {
 			case Continue:
 				continue
 			case Exit:
@@ -45,33 +57,50 @@ MainLoop:
 		if !isError(result) {
 			v.lastVal = result
 		}
-		fmt.Println(result)
+		str := result.String()
+		if repl.maxOutput > 0 && len(str) >= repl.maxOutput {
+			str = str[:repl.maxOutput] + " (truncated)"
+		}
+		fmt.Println(str)
 	}
 }
 
-func (v *VM) handleCommand(cmd string) Flow {
+func (r *repl) handleCommand(cmd string, v *VM) Flow {
 	if cmd == "" {
 		return Continue
 	}
 	parts := strings.Split(cmd, " ")
 	cmd = parts[0]
+	rest := ""
+	if len(parts) > 1 {
+		rest = strings.Join(parts[1:], " ")
+	}
 	switch cmd {
 	case "q", "quit":
 		return Exit
 	case "env":
-		return v.printEnv()
+		return r.printEnv(v)
 	case "ast":
-		if len(parts) == 1 {
-			return Continue
+		return printAST(rest)
+	case "trun":
+		n, err := strconv.ParseInt(rest, 10, 64)
+		if err != nil {
+			fmt.Println(err)
 		}
-		return printAST(strings.Join(parts[1:], " "))
+		r.maxOutput = int(n)
+		fmt.Printf("truncate=%d\n", r.maxOutput)
+		return Continue
 	default:
-		fmt.Printf("Not a command: %s", cmd)
-		return Exit
+		fmt.Printf("Not a command: %s\n", cmd)
+		return Continue
 	}
 }
 
-func (v *VM) printEnv() Flow {
+func (r *repl) printEnv(v *VM) Flow {
+	if len(v.store) == 0 {
+		fmt.Println("empty")
+		return Continue
+	}
 	for k, v := range v.store {
 		fmt.Printf("@%s = %s\n", k, v)
 	}
