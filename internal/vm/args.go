@@ -14,7 +14,7 @@ var handlers = map[string]argHandler{
 	"base":  setOutputBase,
 	"digit": setDigitsType,
 	"num":   setNumericType,
-	"prec":  nil,
+	"prec":  setPrec,
 }
 
 // Get a handler for the argument name.
@@ -70,6 +70,21 @@ func setNumericType(argv string, value Value) Value {
 	switch v := value.(type) {
 	case *Number:
 		v.inRational = argv == "rational"
+		return v
+	default:
+		return v
+	}
+}
+
+// Set the max number of digits to display.
+func setPrec(argv string, value Value) Value {
+	prec, err := strconv.ParseInt(argv, 10, 64)
+	if err != nil {
+		return newError(err)
+	}
+	switch v := value.(type) {
+	case *Number:
+		v.Prec = int(prec)
 		return v
 	default:
 		return v
