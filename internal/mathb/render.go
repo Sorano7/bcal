@@ -13,6 +13,10 @@ const (
 	MaxBaseAlnum int64 = int64(len(Digits))
 )
 
+func (n *Rational) Debug() string {
+	return fmt.Sprintf("num: %v, denom: %v, base: %d", n.num, n.denom, n.base)
+}
+
 // Render the rational as p/q_b.
 func (n *Rational) renderRational(alnum bool) string {
 	num := renderIntInBase(n.num, n.base, alnum)
@@ -106,13 +110,13 @@ func fracToString(nonrep, rep []int64, base int64, alnum bool) string {
 func (n *Rational) renderDecimal(alnum bool) string {
 	var sb strings.Builder
 	sb.WriteString(n.signSymbol())
-	tmp := *n
+	n = n.Clone()
 
-	q, r := tmp.Abs().Divmod()
-	sb.WriteString(renderIntInBase(q, tmp.base, alnum))
+	q, r := n.Abs().Divmod()
+	sb.WriteString(renderIntInBase(q, n.base, alnum))
 	if r.Sign() != 0 {
-		nonrep, rep := tmp.splitFrac()
-		fmt.Fprint(&sb, fracToString(nonrep, rep, tmp.base, alnum))
+		nonrep, rep := n.splitFrac()
+		fmt.Fprint(&sb, fracToString(nonrep, rep, n.base, alnum))
 	}
 	return sb.String()
 }
