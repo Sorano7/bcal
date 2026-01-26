@@ -31,10 +31,10 @@ func (n *Number) String() string {
 }
 
 func newNumber(v *mathb.Rational) *Number {
-	copy := *v
 	return &Number{
-		Value:    &copy,
-		UseAlnum: true,
+		Value:      v.Clone(),
+		UseAlnum:   true,
+		inRational: false,
 	}
 }
 
