@@ -9,8 +9,9 @@ import (
 
 const (
 	// The digit representations.
-	Digits             = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-	MaxBaseAlnum int64 = int64(len(Digits))
+	Digits              = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	MaxBaseAlnum  int64 = int64(len(Digits))
+	MaxFracDigits int   = 100
 )
 
 func (n *Rational) Debug() string {
@@ -25,18 +26,19 @@ func (n *Rational) renderRational(alnum bool) string {
 }
 
 // Render a rational to a string.
-func (n *Rational) Render(useAlphaNum, inRational bool) string {
+func (n *Rational) Render(useAlphaNum, inRational bool, maxFracDigits int) string {
+	n.Normalize()
 	if n.base > MaxBaseAlnum {
 		useAlphaNum = false
 	}
 	if inRational {
 		return n.renderRational(useAlphaNum)
 	}
-	return n.renderDecimal(useAlphaNum)
+	return n.renderDecimal(useAlphaNum, maxFracDigits)
 }
 
 func (n *Rational) String() string {
-	return n.Render(n.base <= MaxBaseAlnum, false)
+	return n.Render(n.base <= MaxBaseAlnum, false, MaxFracDigits)
 }
 
 // Get the sign symbol for this rational.
@@ -107,7 +109,7 @@ func fracToString(nonrep, rep []int64, base int64, alnum bool) string {
 }
 
 // Render a terminating rational in its base digits.
-func (n *Rational) renderDecimal(alnum bool) string {
+func (n *Rational) renderDecimal(alnum bool, maxFracDigits int) string {
 	var sb strings.Builder
 	sb.WriteString(n.signSymbol())
 	n = n.Clone()
@@ -115,8 +117,11 @@ func (n *Rational) renderDecimal(alnum bool) string {
 	q, r := n.Abs().Divmod()
 	sb.WriteString(renderIntInBase(q, n.base, alnum))
 	if r.Sign() != 0 {
-		nonrep, rep := n.splitFrac()
+		nonrep, rep, ok := n.splitFrac(maxFracDigits)
 		fmt.Fprint(&sb, fracToString(nonrep, rep, n.base, alnum))
+		if !ok {
+			sb.WriteString("...")
+		}
 	}
 	return sb.String()
 }
