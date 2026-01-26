@@ -5,11 +5,18 @@ import (
 	"math/big"
 )
 
-// Represents a base rational in normalized form.
+// Represents a base rational in.Normalized form.
 type Rational struct {
 	num   *big.Int
 	denom *big.Int
 	base  int64
+}
+
+// Creates a deep copy.
+func (n *Rational) Clone() *Rational {
+	num := new(big.Int).Set(n.num)
+	denom := new(big.Int).Set(n.denom)
+	return &Rational{num, denom, n.base}
 }
 
 // Sets n's base to base.
@@ -19,31 +26,49 @@ func (n *Rational) WithBase(base int64) *Rational {
 }
 
 // Allocates a new rational with num, denom, and base.
-func newRational(num, denom, base int64) *Rational {
-	if denom == 0 {
+func newRational(num, denom *big.Int, base int64) *Rational {
+	if denom.Sign() == 0 {
 		panic("Division by zero")
 	}
-	r := &Rational{big.NewInt(num), big.NewInt(denom), base}
-	return r.normalize()
+	n := &Rational{num, denom, base}
+	return n.Normalize()
 }
 
-// Construct a new rational from a decimal.
-//
-// I, N, R: the value of the integer, non-repeating, repeating parts.
-//
-// n, r: the number of digits of the non-repeating and repeating parts.
-func newRationalFromDec(I, N, R, n, r, base int64) *Rational {
-	var num, denom int64
-
-	if r == 0 {
-		denom = intPow(base, int64(n))
-		num = I*denom + int64(N)
-	} else {
-		x := (intPow(base, int64(r)) - 1)
-		denom = intPow(base, int64(n)) * x
-		num = I*denom + N*x + R
+// Construct a new rational from a decimal. Input will be mutated.
+func newRationalFromDigits(intPart, nonrep, rep []int64, base int64) (*Rational, error) {
+	I, err := digitsToInt(intPart, base)
+	if err != nil {
+		return nil, err
 	}
-	return newRational(num, denom, base)
+	N, err := digitsToInt(nonrep, base)
+	if err != nil {
+		return nil, err
+	}
+	R, err := digitsToInt(rep, base)
+	if err != nil {
+		return nil, err
+	}
+
+	var num, denom *big.Int
+
+	m, k := len(nonrep), len(rep)
+	Bm := intPow(base, int64(m))
+
+	if k == 0 {
+		num = new(big.Int).Mul(I, Bm)
+		num.Add(num, N)
+		denom = new(big.Int).Set(Bm)
+	} else {
+		tmp := intPow(base, int64(k))
+		tmp.Sub(tmp, big.NewInt(1))
+		denom = new(big.Int).Mul(Bm, tmp)
+		num = new(big.Int).Mul(I, denom)
+
+		tmp.Mul(N, tmp)
+		num.Add(num, tmp)
+		num.Add(num, R)
+	}
+	return newRational(num, denom, base).Clone(), nil
 }
 
 // Sets n to the absolute value of n.
@@ -70,7 +95,7 @@ func (n *Rational) Sign() int {
 func (n *Rational) Add(other *Rational) *Rational {
 	matchDenom(n, other)
 	n.num.Add(n.num, other.num)
-	return n.normalize()
+	return n.Normalize()
 }
 
 // Split the rational into the quotient and remainder.
@@ -84,14 +109,14 @@ func (n *Rational) Divmod() (*big.Int, *big.Int) {
 func (n *Rational) Sub(other *Rational) *Rational {
 	matchDenom(n, other)
 	n.num.Sub(n.num, other.num)
-	return n.normalize()
+	return n.Normalize()
 }
 
 // Sets n to the result of n * other.
 func (n *Rational) Mul(other *Rational) *Rational {
 	n.num.Mul(n.num, other.num)
 	n.denom.Mul(n.denom, other.denom)
-	return n.normalize()
+	return n.Normalize()
 }
 
 // Sets n to the result of n / other.
@@ -101,7 +126,7 @@ func (n *Rational) Div(other *Rational) (*Rational, error) {
 	}
 	n.num.Mul(n.num, other.denom)
 	n.denom.Mul(n.denom, other.num)
-	return n.normalize(), nil
+	return n.Normalize(), nil
 }
 
 // Sets n to the result of -n.
