@@ -46,3 +46,10 @@ func (v *VM) run(src string) Value {
 	}
 	return v.execute(program)
 }
+
+// Run the source and return the result.
+func Run(src string) string {
+	v := newVM(10)
+	res := v.run(src)
+	return res.String()
+}
