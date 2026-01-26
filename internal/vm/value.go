@@ -20,7 +20,7 @@ type Value interface {
 }
 
 type Number struct {
-	Value      mathb.Rational
+	Value      *mathb.Rational
 	UseAlnum   bool
 	inRational bool
 }
@@ -30,10 +30,11 @@ func (n *Number) String() string {
 	return n.Value.Render(n.UseAlnum, n.inRational)
 }
 
-func newNumber(v mathb.Rational) *Number {
+func newNumber(v *mathb.Rational) *Number {
 	return &Number{
-		Value:    v,
-		UseAlnum: true,
+		Value:      v.Clone(),
+		UseAlnum:   true,
+		inRational: false,
 	}
 }
 

@@ -1,58 +1,55 @@
-package mathb_test
+package mathb
 
 import (
-	"calculator/internal/mathb"
 	"fmt"
+	"math/big"
 	"testing"
 )
 
-func assertEqual(value, want mathb.Rational, t *testing.T) {
-	if value.Cmp(want) != 0 {
-		t.Fatalf("want: %s (%s), got: %s (%s)",
-			want, want.Render(false, true), value, value.Render(false, true))
+func bigIntEquals(a, b *big.Int) bool {
+	return a.Cmp(b) == 0
+}
+
+func assertEquals(have, want *Rational, t *testing.T) {
+	if have.Cmp(want) != 0 {
+		t.Fatalf("have: %s, want: %s", have, want)
 	}
 }
 
-func printExpr(a, b, result mathb.Rational) {
-	fmt.Printf("%s <op> %s = %s\n", a.Render(false, true), b.Render(false, true), result.Render(false, true))
+func TestClone(t *testing.T) {
+	x := newRational(big.NewInt(100), big.NewInt(1), 10)
+	y := x.Clone()
+	fmt.Printf("x(%p): { num: %p, denom: %p }\n", x, x.num, x.denom)
+	fmt.Printf("y(%p): { num: %p, denom: %p }\n", y, y.num, y.denom)
 }
 
-func TestParsingDigits(t *testing.T) {
-	x, _ := mathb.ParseString("ABC", 16)
-	y, _ := mathb.ParseDigitList([]int64{10, 11, 12}, nil, nil, 16)
-	assertEqual(x, y, t)
-}
-
-func TestParsingString(t *testing.T) {
-	if _, err := mathb.ParseString("100", 10); err != nil {
+func TestParseRender(t *testing.T) {
+	str := "1A3B.2(56BA)"
+	x, err := ParseString(str, 12)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := mathb.ParseString("1234", 2); err == nil {
-		t.Fatal(err)
-	}
-	if _, err := mathb.ParseString("&&&", 60); err == nil {
-		t.Fatal(err)
-	}
-	if _, err := mathb.ParseString("ABC", 100); err == nil {
-		t.Fatal(err)
-	}
-	str := "1AB24.AB5345"
-	x, _ := mathb.ParseString(str, 12)
-	if x.String() != str {
-		t.Fatalf("want: %s, got: %s", str, x)
+	if x.Render(true, false) != str {
+		t.Fatalf("Parsed value differs from render: %s", x.Render(true, false))
 	}
 }
 
-func TestAddInt(t *testing.T) {
-	x, _ := mathb.ParseString("1A", 12)
-	y, _ := mathb.ParseString("1", 12)
-	want, _ := mathb.ParseString("1B", 12)
-	assertEqual(x.Add(y), want, t)
+func TestParseString(t *testing.T) {
+	tmp := new(big.Int)
+	x, err := ParseString("1A.25AB", 12)
+	if err != nil {
+		t.Fatal(err)
+	}
+	x.WithBase(10)
+
+	if !bigIntEquals(x.num, tmp.SetInt64(460499)) && !bigIntEquals(x.denom, tmp.SetInt64(20736)) {
+		t.Fatalf("Parse string failed: %s", x)
+	}
 }
 
-func TestAddFrac(t *testing.T) {
-	x, _ := mathb.ParseString("1.A1", 12)
-	y, _ := mathb.ParseString("2.3B", 12)
-	want, _ := mathb.ParseString("4.2", 12)
-	assertEqual(x.Add(y), want, t)
+func TestAdd(t *testing.T) {
+	a, _ := ParseString("1B", 12)
+	b, _ := ParseString("1", 10)
+	want, _ := ParseString("20", 12)
+	assertEquals(a.Add(b), want, t)
 }

@@ -34,7 +34,7 @@ func (v *VM) evalIOBase(expr parser.Expression, ibase, obase int64) Value {
 	}
 	switch val := value.(type) {
 	case *Number:
-		return newNumber(val.Value.WithBase(obase))
+		return newNumber(val.Value.Clone().WithBase(obase))
 	default:
 		return newErrorf("Invalid expr: %s", val)
 	}
@@ -62,6 +62,9 @@ func (v *VM) evalNumber(e *parser.NumberLiteral, base int64) Value {
 }
 
 func evalDigit(expr parser.Expression, base int64) ([]int64, error) {
+	if expr == nil {
+		return nil, nil
+	}
 	switch e := expr.(type) {
 	case *parser.DigitList:
 		return e.Value, nil
@@ -71,8 +74,6 @@ func evalDigit(expr parser.Expression, base int64) ([]int64, error) {
 			return nil, err
 		}
 		return v, nil
-	case *parser.DigitValue:
-		return nil, nil
 	default:
 		return nil, fmt.Errorf("Invalid digit: %s", expr)
 	}
@@ -96,7 +97,7 @@ func (v *VM) evalPrefix(e *parser.PrefixExpr, base int64) Value {
 func (v *VM) evalNumberPrefix(op string, n *Number) Value {
 	switch op {
 	case "-":
-		return newNumber(n.Value.Neg())
+		return newNumber(n.Value.Clone().Neg())
 	default:
 		return newErrorf("Invalid prefix operation: %s<number>", op)
 	}

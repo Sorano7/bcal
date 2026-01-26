@@ -1,6 +1,8 @@
 package vm
 
-import "calculator/internal/parser"
+import (
+	"calculator/internal/parser"
+)
 
 // An VM for executing the program.
 type VM struct {
