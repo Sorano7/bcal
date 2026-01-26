@@ -1,6 +1,7 @@
 package mathb
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 )
@@ -13,6 +14,13 @@ func assertEquals(have, want *Rational, t *testing.T) {
 	if have.Cmp(want) != 0 {
 		t.Fatalf("have: %s, want: %s", have, want)
 	}
+}
+
+func TestClone(t *testing.T) {
+	x := newRational(big.NewInt(100), big.NewInt(1), 10)
+	y := x.Clone()
+	fmt.Printf("x(%p): { num: %p, denom: %p }\n", x, x.num, x.denom)
+	fmt.Printf("y(%p): { num: %p, denom: %p }\n", y, y.num, y.denom)
 }
 
 func TestParseRender(t *testing.T) {
