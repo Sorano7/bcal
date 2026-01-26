@@ -193,9 +193,7 @@ func (p *parser) parseStringOrList() Expression {
 // Parse a number.
 func (p *parser) parseNumber() Expression {
 	expr := &NumberLiteral{
-		Int:    &DigitValue{0},
-		Nonrep: &DigitValue{0},
-		Rep:    &DigitValue{0},
+		Int: &DigitString{"0"},
 	}
 	if !p.currentTokenIs(TokenDot) {
 		expr.Int = p.parseStringOrList()
