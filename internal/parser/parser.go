@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 )
 
 // A parser for constructing AST.
@@ -139,11 +140,11 @@ func (p *parser) handleInfix(prec int, expr Expression) Expression {
 
 // Parse a digit value.
 func (p *parser) parseDigitValue() Expression {
-	num := p.currentToken().value
 	if !p.currentTokenIs(TokenAlphaNum) {
-		return newErrorf("Not a int: %s", num)
+		return newErrorf("Not a int: %s", p.currentToken().value)
 	}
-	n, err := strconv.ParseInt(num, 10, 64)
+	clean := strings.ReplaceAll(p.currentToken().value, "_", "")
+	n, err := strconv.ParseInt(clean, 10, 64)
 	if err != nil {
 		return newError(err)
 	}
@@ -156,7 +157,8 @@ func (p *parser) parseDigitString() Expression {
 	if !p.currentTokenIs(TokenAlphaNum) {
 		return newErrorf("Invalid digit string: %s", p.currentToken().value)
 	}
-	expr := &DigitString{Value: p.currentToken().value}
+	clean := strings.ReplaceAll(p.currentToken().value, "_", "")
+	expr := &DigitString{Value: clean}
 	p.advance()
 	return expr
 }
