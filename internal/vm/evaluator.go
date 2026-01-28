@@ -123,23 +123,29 @@ func (v *VM) evalInfix(e *parser.InfixExpr, base int64) Value {
 
 // Evaluate a number infix.
 func (v *VM) evalNumberInfix(op string, left, right *Number) Value {
-	l, r := left.Value, right.Value
+	l := left.Value.Clone()
+	r := right.Value
+	var err error
 	switch op {
 	case "+":
-		return newNumber(l.Add(r))
+		l.Add(r)
 	case "-":
-		return newNumber(l.Sub(r))
+		l.Sub(r)
 	case "*":
-		return newNumber(l.Mul(r))
+		l.Mul(r)
 	case "/":
-		res, err := l.Div(r)
-		if err != nil {
-			return newError(err)
-		}
-		return newNumber(res)
+		_, err = l.Div(r)
+	case "^":
+		_, err = l.Pow(r)
+	case "%":
+		_, err = l.Mod(r)
 	default:
 		return newErrorf("Invalid prefix operation: <number> %s <number>", op)
 	}
+	if err != nil {
+		return newError(err)
+	}
+	return newNumber(l)
 }
 
 // Evaluate identifiers.
