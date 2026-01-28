@@ -47,6 +47,7 @@ func intPow(a, b int64) *big.Int {
 }
 
 // Compute the non-repeating and repeating part of this rational.
+// Returns true if terminated.
 func (n *Rational) splitFrac(maxDigit int) ([]int64, []int64, bool) {
 	n = n.Clone()
 	denom := n.denom
@@ -61,7 +62,7 @@ func (n *Rational) splitFrac(maxDigit int) ([]int64, []int64, bool) {
 	digits := make([]int64, 0, 64)
 
 	t := new(big.Int)
-	for i := 0; i < MaxRepeatDetect; i++ {
+	for range MaxRepeatDetect {
 		if rem.Sign() == 0 {
 			return digits, nil, true
 		}
@@ -71,7 +72,17 @@ func (n *Rational) splitFrac(maxDigit int) ([]int64, []int64, bool) {
 
 		key := string(rem.Bytes())
 		if split, ok := seen[key]; ok {
-			return digits[:split], digits[split:], true
+			switch {
+			case maxDigit == 0:
+				return digits[:split], digits[split:], true
+			case split >= maxDigit:
+				return digits[:maxDigit], nil, false
+			default:
+				for i := 0; len(digits) < maxDigit; i++ {
+					digits = append(digits, digits[split+i])
+				}
+				return digits, nil, false
+			}
 		}
 		seen[key] = len(digits)
 
