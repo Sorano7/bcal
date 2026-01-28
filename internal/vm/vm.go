@@ -39,6 +39,7 @@ func (v *VM) getVar(name string) Value {
 	return v.store[name]
 }
 
+// Run a source and return the result as value.
 func (v *VM) run(src string) Value {
 	program, err := parser.Parse(src)
 	if err != nil {

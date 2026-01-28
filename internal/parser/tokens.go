@@ -1,5 +1,6 @@
 package parser
 
+// Represents a token type.
 type tokenType int
 
 const (
@@ -34,6 +35,7 @@ const (
 	Prefix
 )
 
+// The precendence of infix operators.
 var opPrec = map[tokenType]int{
 	TokenHash:    Output,
 	TokenPlus:    PlusMinus,
@@ -44,11 +46,13 @@ var opPrec = map[tokenType]int{
 	TokenCaret:   Power,
 }
 
+// Represents a token.
 type token struct {
 	typeof tokenType
 	value  string
 }
 
+// Get the precedence of this token.
 func (t token) prec() int {
 	prec, ok := opPrec[t.typeof]
 	if !ok {

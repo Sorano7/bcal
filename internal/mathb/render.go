@@ -14,6 +14,7 @@ const (
 	MaxFracDigits int   = 100
 )
 
+// Render the rational's internal representation for debugging.
 func (n *Rational) Debug() string {
 	return fmt.Sprintf("num: %v, denom: %v, base: %d", n.num, n.denom, n.base)
 }
