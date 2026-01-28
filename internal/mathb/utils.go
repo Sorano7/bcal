@@ -15,21 +15,6 @@ func lcm(a, b *big.Int) *big.Int {
 	return t
 }
 
-// Mutates and normalize the rational.
-func (n *Rational) Normalize() *Rational {
-	if n.denom.Sign() < 0 {
-		n.num.Neg(n.num)
-		n.denom.Neg(n.denom)
-	}
-
-	absN := new(big.Int).Abs(n.num)
-	g := new(big.Int).GCD(nil, nil, absN, n.denom)
-
-	n.num.Div(n.num, g)
-	n.denom.Div(n.denom, g)
-	return n
-}
-
 // Mutates to match the two rationals' denominator and return both rationals.
 func matchDenom(a, b *Rational) {
 	d := lcm(a.denom, b.denom)
